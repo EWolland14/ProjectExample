@@ -1,5 +1,5 @@
 import { Tile, Meld, Player, Color } from '../types.js';
-import { validateGroup, validateRun, validateBoard } from './meldValidator.js';
+import { validateGroup, validateRun, validateBoard, sortMeldTiles } from './meldValidator.js';
 import { COLORS } from './tilePool.js';
 
 export interface BotMoveResult {
@@ -190,13 +190,13 @@ export function executeBotTurn(player: Player, currentBoard: Meld[]): BotMoveRes
       };
     }
 
-    // Play initial melds onto board
+    // Play initial melds onto board (strictly sorted)
     const playedTileIds = new Set<string>();
     for (const meldTiles of initialCombo) {
       meldTiles.forEach(t => playedTileIds.add(t.id));
       board.push({
         id: `meld-${Date.now()}-${Math.random().toString(36).substring(2, 6)}`,
-        tiles: meldTiles,
+        tiles: sortMeldTiles(meldTiles),
       });
     }
 
@@ -204,7 +204,7 @@ export function executeBotTurn(player: Player, currentBoard: Meld[]): BotMoveRes
 
     return {
       played: true,
-      newBoard: board,
+      newBoard: board.map(m => ({ id: m.id, tiles: sortMeldTiles(m.tiles) })),
       newRack: rack,
       actionDescription: `${player.name} opens with an initial meld of ${initialCombo.length} sets totaling 30+ points!`,
     };
@@ -221,14 +221,14 @@ export function executeBotTurn(player: Player, currentBoard: Meld[]): BotMoveRes
     const playedIds = new Set(selectedMeld.meld.map(t => t.id));
     board.push({
       id: `meld-${Date.now()}-${Math.random().toString(36).substring(2, 6)}`,
-      tiles: selectedMeld.meld,
+      tiles: sortMeldTiles(selectedMeld.meld),
     });
     rack = rack.filter(t => !playedIds.has(t.id));
     tilesPlayedFromRack += selectedMeld.meld.length;
     movesMade.push(`played a new ${selectedMeld.type} of ${selectedMeld.meld.length} tiles`);
   }
 
-  // Strategy B: Append hand tiles to existing board melds
+  // Strategy B: Append hand tiles to existing board melds in sequential order
   const remainingRack = [...rack];
   for (const tile of remainingRack) {
     let placed = false;
@@ -236,21 +236,10 @@ export function executeBotTurn(player: Player, currentBoard: Meld[]): BotMoveRes
     for (let mIdx = 0; mIdx < board.length; mIdx++) {
       const meld = board[mIdx];
 
-      // Try prepending tile to meld
-      const prepended = [tile, ...meld.tiles];
-      if (validateRun(prepended).valid || validateGroup(prepended).valid) {
-        board[mIdx] = { ...meld, tiles: prepended };
-        rack = rack.filter(t => t.id !== tile.id);
-        tilesPlayedFromRack++;
-        placed = true;
-        movesMade.push(`added ${tile.color} ${tile.isJoker ? 'Joker' : tile.number} to table`);
-        break;
-      }
-
-      // Try appending tile to meld
-      const appended = [...meld.tiles, tile];
-      if (validateRun(appended).valid || validateGroup(appended).valid) {
-        board[mIdx] = { ...meld, tiles: appended };
+      // Try adding tile to meld in sorted order
+      const candidate = sortMeldTiles([...meld.tiles, tile]);
+      if (validateRun(candidate).valid || validateGroup(candidate).valid) {
+        board[mIdx] = { ...meld, tiles: candidate };
         rack = rack.filter(t => t.id !== tile.id);
         tilesPlayedFromRack++;
         placed = true;
@@ -271,8 +260,8 @@ export function executeBotTurn(player: Player, currentBoard: Meld[]): BotMoveRes
       const meld = board[mIdx];
       // If a run is 6 or more tiles, split it into two valid runs
       if (meld.tiles.length >= 6) {
-        const part1 = meld.tiles.slice(0, 3);
-        const part2 = meld.tiles.slice(3);
+        const part1 = sortMeldTiles(meld.tiles.slice(0, 3));
+        const part2 = sortMeldTiles(meld.tiles.slice(3));
         if (validateRun(part1).valid && validateRun(part2).valid) {
           board[mIdx] = { id: meld.id, tiles: part1 };
           board.push({
@@ -286,8 +275,11 @@ export function executeBotTurn(player: Player, currentBoard: Meld[]): BotMoveRes
     }
   }
 
+  // Sort all melds on the board so every run is strictly in sequential order
+  const sortedBoard = board.map(m => ({ id: m.id, tiles: sortMeldTiles(m.tiles) }));
+
   // Verify that the modified board is 100% valid
-  const validation = validateBoard(board);
+  const validation = validateBoard(sortedBoard);
   if (!validation.valid || tilesPlayedFromRack === 0) {
     return {
       played: false,
@@ -299,7 +291,7 @@ export function executeBotTurn(player: Player, currentBoard: Meld[]): BotMoveRes
 
   return {
     played: true,
-    newBoard: board,
+    newBoard: sortedBoard,
     newRack: rack,
     actionDescription: `${player.name} ${movesMade.join(', ')}.`,
   };

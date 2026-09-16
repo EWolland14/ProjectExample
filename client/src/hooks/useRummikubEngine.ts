@@ -16,6 +16,7 @@ import {
   executeBotTurn,
   calculateFinalScores,
   ScoreSummary,
+  sortMeldTiles,
 } from '@rummikub/shared';
 import { io, Socket } from 'socket.io-client';
 import confetti from 'canvas-confetti';
@@ -639,7 +640,9 @@ export function useRummikubEngine({ soundEffects }: UseRummikubOptions) {
     setGameState(prev => {
       if (!prev) return prev;
 
-      const cleanBoard = board.filter(m => m.tiles.length > 0);
+      const cleanBoard = board
+        .filter(m => m.tiles.length > 0)
+        .map(m => ({ id: m.id, tiles: sortMeldTiles(m.tiles) }));
       const updatedPlayers = [...prev.players];
       updatedPlayers[prev.activePlayerIndex] = {
         ...updatedPlayers[prev.activePlayerIndex],
@@ -712,8 +715,10 @@ export function useRummikubEngine({ soundEffects }: UseRummikubOptions) {
           }
         }
 
-        // Clean up and advance
-        const cleanBoard = board.filter(m => m.tiles.length > 0);
+        // Clean up and advance (with melds sorted into consecutive sequence)
+        const cleanBoard = board
+          .filter(m => m.tiles.length > 0)
+          .map(m => ({ id: m.id, tiles: sortMeldTiles(m.tiles) }));
         const updatedPlayers = [...prev.players];
         updatedPlayers[botIndex] = { ...botPlayer, rack };
 
@@ -765,7 +770,9 @@ export function useRummikubEngine({ soundEffects }: UseRummikubOptions) {
       rack.push(...drawn);
     }
 
-    const cleanBoard = board.filter(m => m.tiles.length > 0);
+    const cleanBoard = board
+      .filter(m => m.tiles.length > 0)
+      .map(m => ({ id: m.id, tiles: sortMeldTiles(m.tiles) }));
     const updatedPlayers = [...prev.players];
     updatedPlayers[prev.activePlayerIndex] = { ...activePlayer, rack };
 
@@ -812,6 +819,18 @@ export function useRummikubEngine({ soundEffects }: UseRummikubOptions) {
         lastActionMessage: `🎉 ${winner?.name || 'Player'} cleared their rack and won the game!`,
       };
     });
+  };
+
+  // Manually tidy / sort all melds on the board into strictly sequential runs
+  const sortBoardMelds = () => {
+    if (!gameState) return;
+    soundEffects.playTileClick();
+    const sorted = gameState.board.map(m => ({ id: m.id, tiles: sortMeldTiles(m.tiles) }));
+    setGameState(prev => (prev ? { ...prev, board: sorted } : prev));
+    if (gameState.mode === 'online') {
+      const activeP = gameState.players[gameState.activePlayerIndex];
+      socketRef.current?.emit('update_board_and_rack', { board: sorted, rack: activeP.rack });
+    }
   };
 
   // Validation calculations
@@ -862,6 +881,7 @@ export function useRummikubEngine({ soundEffects }: UseRummikubOptions) {
     clearSelection: () => setSelectedTileIds(new Set()),
     sortRackByGroup,
     sortRackByRun,
+    sortBoardMelds,
     revertTurn,
     drawAndPass,
     endTurn,

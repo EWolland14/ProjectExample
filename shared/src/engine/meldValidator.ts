@@ -460,3 +460,87 @@ export function validateRegularTurn(
     tilesPlayed,
   };
 }
+
+/**
+ * Sorts tiles of a valid Run into strictly ascending consecutive sequence:
+ * e.g. [8, 12, 9, 10, 11] -> [8, 9, 10, 11, 12]
+ * e.g. [Red 4, Red 6, Joker] -> [Red 4, Joker, Red 6]
+ */
+export function sortRunTiles(tiles: Tile[]): Tile[] {
+  if (tiles.length <= 1) return [...tiles];
+
+  const nonJokers = tiles.filter(t => !t.isJoker).sort((a, b) => a.number - b.number);
+  const jokers = tiles.filter(t => t.isJoker);
+
+  if (nonJokers.length === 0) return [...tiles];
+
+  const T = tiles.length;
+  const minNum = nonJokers[0].number;
+  const maxNum = nonJokers[nonJokers.length - 1].number;
+
+  const minPossibleStart = Math.max(1, maxNum - T + 1);
+  const maxPossibleStart = Math.min(minNum, 13 - T + 1);
+
+  if (minPossibleStart > maxPossibleStart) {
+    return [...nonJokers, ...jokers];
+  }
+
+  // Determine starting number:
+  let startNum = maxPossibleStart;
+  if (tiles[0] && !tiles[0].isJoker) {
+    if (tiles[0].number >= minPossibleStart && tiles[0].number <= maxPossibleStart) {
+      startNum = tiles[0].number;
+    } else {
+      startNum = Math.min(minNum, maxPossibleStart);
+    }
+  } else if (tiles[0] && tiles[0].isJoker) {
+    startNum = minPossibleStart;
+  }
+
+  const result: Tile[] = [];
+  const remainingNonJokers = [...nonJokers];
+  const remainingJokers = [...jokers];
+
+  for (let n = startNum; n < startNum + T; n++) {
+    const idx = remainingNonJokers.findIndex(t => t.number === n);
+    if (idx !== -1) {
+      result.push(remainingNonJokers.splice(idx, 1)[0]);
+    } else if (remainingJokers.length > 0) {
+      result.push(remainingJokers.shift()!);
+    }
+  }
+
+  return [...result, ...remainingNonJokers, ...remainingJokers];
+}
+
+/**
+ * Sorts tiles in any meld:
+ * - If it is a Run: sorts strictly in ascending consecutive sequence.
+ * - If it is a Group: sorts by consistent color order (Red, Blue, Yellow, Black, Joker).
+ * - Otherwise: sorts by number ascending.
+ */
+export function sortMeldTiles(tiles: Tile[]): Tile[] {
+  if (tiles.length <= 1) return [...tiles];
+
+  const runRes = validateRun(tiles);
+  if (runRes.valid) {
+    return sortRunTiles(tiles);
+  }
+
+  const groupRes = validateGroup(tiles);
+  if (groupRes.valid) {
+    const colorOrder: Record<string, number> = { red: 0, blue: 1, yellow: 2, black: 3, wild: 4 };
+    return [...tiles].sort((a, b) => {
+      if (a.isJoker && !b.isJoker) return 1;
+      if (!a.isJoker && b.isJoker) return -1;
+      return (colorOrder[a.color] ?? 99) - (colorOrder[b.color] ?? 99);
+    });
+  }
+
+  return [...tiles].sort((a, b) => {
+    if (a.isJoker && !b.isJoker) return 1;
+    if (!a.isJoker && b.isJoker) return -1;
+    return a.number - b.number;
+  });
+}
+

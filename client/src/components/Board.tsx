@@ -1,7 +1,8 @@
 import React, { useState } from 'react';
 import { Meld, Tile as TileType } from '@rummikub/shared';
 import { MeldGroup } from './MeldGroup.js';
-import { PlusCircle, Sparkles } from 'lucide-react';
+import { PlusCircle, Sparkles, Wand2 } from 'lucide-react';
+import { TableColor, TableShape } from './TableCustomizerModal.js';
 
 interface BoardProps {
   board: Meld[];
@@ -10,6 +11,9 @@ interface BoardProps {
   onTileDragStart?: (tile: TileType, fromMeldId: string, indexInMeld: number) => void;
   onDropTileIntoMeld: (tile: TileType, targetMeldId: string, insertIndex: number) => void;
   onCreateNewMeld: (tile: TileType) => void;
+  tableColor?: TableColor;
+  tableShape?: TableShape;
+  onTidyBoard?: () => void;
 }
 
 export const Board: React.FC<BoardProps> = ({
@@ -19,8 +23,31 @@ export const Board: React.FC<BoardProps> = ({
   onTileDragStart,
   onDropTileIntoMeld,
   onCreateNewMeld,
+  tableColor = 'felt',
+  tableShape = 'rounded',
+  onTidyBoard,
 }) => {
   const [isDropTargetActive, setIsDropTargetActive] = useState(false);
+
+  const colorClasses = {
+    felt: 'felt-surface border-[#123328]',
+    navy: 'navy-surface border-[#091321]',
+    burgundy: 'burgundy-surface border-[#260a10]',
+    slate: 'slate-surface border-[#101216]',
+    wood: 'walnut-surface border-[#24140b]',
+  }[tableColor];
+
+  const shapeClasses = {
+    rounded: 'rounded-2xl sm:rounded-3xl',
+    oval: 'rounded-[40px] sm:rounded-[70px]',
+    octagon: 'rounded-xl',
+    square: 'rounded-md',
+  }[tableShape];
+
+  const octagonStyle =
+    tableShape === 'octagon'
+      ? { clipPath: 'polygon(3% 0%, 97% 0%, 100% 4%, 100% 96%, 97% 100%, 3% 100%, 0% 96%, 0% 4%)' }
+      : undefined;
 
   const handleDragOverNewZone = (e: React.DragEvent) => {
     e.preventDefault();
@@ -51,7 +78,21 @@ export const Board: React.FC<BoardProps> = ({
   };
 
   return (
-    <div className="flex-1 w-full felt-surface rounded-2xl border-4 border-[#123328] shadow-inner p-3 sm:p-4 overflow-y-auto min-h-[360px] flex flex-col relative">
+    <div
+      style={octagonStyle}
+      className={`flex-1 w-full ${colorClasses} ${shapeClasses} border-4 shadow-inner p-3 sm:p-5 overflow-y-auto min-h-[360px] flex flex-col relative transition-all duration-300`}
+    >
+      {/* Quick Auto-Sort / Tidy Table Button */}
+      {board.length > 0 && onTidyBoard && (
+        <button
+          onClick={onTidyBoard}
+          className="absolute top-3 right-3 z-20 flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-black/50 hover:bg-black/75 backdrop-blur-sm text-stone-200 hover:text-white border border-white/20 text-xs font-bold shadow-lg active:scale-95 transition"
+          title="Auto-sort all table runs into consecutive numerical order"
+        >
+          <Wand2 className="w-3.5 h-3.5 text-amber-400" />
+          <span>Tidy Table</span>
+        </button>
+      )}
       {board.length === 0 ? (
         <div className="flex-1 flex flex-col items-center justify-center text-center p-6 border-2 border-dashed border-emerald-600/30 rounded-xl my-4">
           <Sparkles className="w-10 h-10 text-emerald-400/60 mb-2 animate-bounce" />

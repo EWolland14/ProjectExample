@@ -11,6 +11,8 @@ import {
   validateBoard,
   validateInitialMeld,
   validateRegularTurn,
+  sortRunTiles,
+  sortMeldTiles,
 } from '../meldValidator.js';
 import { calculateRackPoints, calculateFinalScores } from '../scoring.js';
 import { Tile, Meld, Player } from '../../types.js';
@@ -436,3 +438,47 @@ describe('Scoring', () => {
     expect(charlieSummary?.netScore).toBe(-30);
   });
 });
+
+describe('Meld Sequential Ordering', () => {
+  it('strictly sorts unordered run tiles into consecutive sequence', () => {
+    // Exactly the user's reported case: [8, 12, 9, 10, 11]
+    const tiles: Tile[] = [
+      { id: '1', number: 8, color: 'black', isJoker: false },
+      { id: '2', number: 12, color: 'black', isJoker: false },
+      { id: '3', number: 9, color: 'black', isJoker: false },
+      { id: '4', number: 10, color: 'black', isJoker: false },
+      { id: '5', number: 11, color: 'black', isJoker: false },
+    ];
+
+    const sorted = sortRunTiles(tiles);
+    const numbers = sorted.map(t => t.number);
+    expect(numbers).toEqual([8, 9, 10, 11, 12]);
+  });
+
+  it('correctly slots a Joker into its numeric position in a run', () => {
+    const tiles: Tile[] = [
+      { id: '1', number: 4, color: 'red', isJoker: false },
+      { id: '2', number: 6, color: 'red', isJoker: false },
+      { id: 'j', number: 0, color: 'wild', isJoker: true },
+    ];
+
+    const sorted = sortRunTiles(tiles);
+    expect(sorted[0].number).toBe(4);
+    expect(sorted[1].isJoker).toBe(true);
+    expect(sorted[2].number).toBe(6);
+  });
+
+  it('sorts groups in standard color order with Jokers last', () => {
+    const tiles: Tile[] = [
+      { id: '1', number: 9, color: 'black', isJoker: false },
+      { id: '2', number: 9, color: 'red', isJoker: false },
+      { id: '3', number: 9, color: 'blue', isJoker: false },
+    ];
+
+    const sorted = sortMeldTiles(tiles);
+    expect(sorted[0].color).toBe('red');
+    expect(sorted[1].color).toBe('blue');
+    expect(sorted[2].color).toBe('black');
+  });
+});
+

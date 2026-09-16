@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { Meld, Tile as TileType, validateMeld } from '@rummikub/shared';
+import { Meld, Tile as TileType, validateMeld, sortMeldTiles } from '@rummikub/shared';
 import { Tile } from './Tile.js';
 import { AlertCircle, CheckCircle2 } from 'lucide-react';
 
@@ -23,6 +23,7 @@ export const MeldGroup: React.FC<MeldGroupProps> = ({
 }) => {
   const [dragOverIndex, setDragOverIndex] = useState<number | null>(null);
   const validation = validateMeld(meld.tiles);
+  const displayTiles = validation.valid ? sortMeldTiles(meld.tiles) : meld.tiles;
 
   const handleDragOver = (e: React.DragEvent, insertIdx: number) => {
     e.preventDefault();
@@ -97,7 +98,7 @@ export const MeldGroup: React.FC<MeldGroupProps> = ({
           `}
         />
 
-        {meld.tiles.map((tile, tIdx) => {
+        {displayTiles.map((tile, tIdx) => {
           const isNew = newTileIds.has(tile.id);
           return (
             <React.Fragment key={tile.id}>

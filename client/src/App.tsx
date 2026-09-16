@@ -11,7 +11,12 @@ import {
   GameOverModal,
   RulesModal,
 } from './components/Modals.js';
-import { Dices } from 'lucide-react';
+import {
+  TableCustomizerModal,
+  TableColor,
+  TableShape,
+} from './components/TableCustomizerModal.js';
+import { Dices, Palette } from 'lucide-react';
 
 export const App: React.FC = () => {
   const soundEffects = useSoundEffects();
@@ -54,11 +59,31 @@ export const App: React.FC = () => {
     clearSelection,
     sortRackByGroup,
     sortRackByRun,
+    sortBoardMelds,
     revertTurn,
     drawAndPass,
     endTurn,
     revealCurtain,
   } = engine;
+
+  // Table customization state (persisted)
+  const [tableColor, setTableColor] = React.useState<TableColor>(() => {
+    return (localStorage.getItem('rummikub_table_color') as TableColor) || 'felt';
+  });
+  const [tableShape, setTableShape] = React.useState<TableShape>(() => {
+    return (localStorage.getItem('rummikub_table_shape') as TableShape) || 'rounded';
+  });
+  const [isTableCustomizerOpen, setIsTableCustomizerOpen] = React.useState(false);
+
+  const handleUpdateTableColor = (color: TableColor) => {
+    setTableColor(color);
+    localStorage.setItem('rummikub_table_color', color);
+  };
+
+  const handleUpdateTableShape = (shape: TableShape) => {
+    setTableShape(shape);
+    localStorage.setItem('rummikub_table_shape', shape);
+  };
 
   // Current active player and local player rack
   const activePlayer = gameState ? gameState.players[gameState.activePlayerIndex] : null;
@@ -94,6 +119,15 @@ export const App: React.FC = () => {
         </div>
 
         <div className="flex items-center gap-2">
+          {/* Table Customization Button */}
+          <button
+            onClick={() => setIsTableCustomizerOpen(true)}
+            className="flex items-center gap-1.5 px-2.5 py-1 rounded-lg bg-stone-800 hover:bg-stone-700 text-stone-300 text-xs font-semibold border border-stone-700 transition"
+            title="Change Table Color & Shape"
+          >
+            <Palette className="w-3.5 h-3.5 text-amber-400" />
+            <span className="hidden sm:inline">Table Style</span>
+          </button>
           <button
             onClick={() => setIsRulesOpen(true)}
             className="px-2.5 py-1 rounded-lg bg-stone-800 hover:bg-stone-700 text-stone-300 text-xs font-semibold border border-stone-700 transition"
@@ -136,12 +170,15 @@ export const App: React.FC = () => {
               lastActionMessage={gameState.lastActionMessage}
             />
 
-            {/* Felt Board */}
+            {/* Table Board */}
             <Board
               board={gameState.board}
               newTileIds={newTileIds}
               onDropTileIntoMeld={dropTileIntoMeld}
               onCreateNewMeld={createNewMeld}
+              tableColor={tableColor}
+              tableShape={tableShape}
+              onTidyBoard={sortBoardMelds}
             />
 
             {/* Bottom Rack */}
@@ -161,7 +198,7 @@ export const App: React.FC = () => {
           </>
         ) : (
           /* Welcome Banner when in lobby or before game start */
-          <div className="flex-1 flex flex-col items-center justify-center text-center p-6 felt-surface rounded-2xl border-4 border-[#123328]">
+          <div className={`flex-1 flex flex-col items-center justify-center text-center p-6 ${tableColor}-surface rounded-2xl border-4 border-black/30`}>
             <div className="p-4 rounded-3xl bg-stone-900/80 border border-stone-700 shadow-2xl max-w-md flex flex-col items-center">
               <span className="text-4xl mb-3">🀄</span>
               <h2 className="text-2xl font-black text-white">Welcome to Rummikub</h2>
@@ -220,6 +257,15 @@ export const App: React.FC = () => {
       />
 
       <RulesModal isOpen={isRulesOpen} onClose={() => setIsRulesOpen(false)} />
+
+      <TableCustomizerModal
+        isOpen={isTableCustomizerOpen}
+        onClose={() => setIsTableCustomizerOpen(false)}
+        tableColor={tableColor}
+        onChangeColor={handleUpdateTableColor}
+        tableShape={tableShape}
+        onChangeShape={handleUpdateTableShape}
+      />
     </div>
   );
 };

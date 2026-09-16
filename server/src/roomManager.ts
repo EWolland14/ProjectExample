@@ -12,6 +12,7 @@ import {
   validateRegularTurn,
   executeBotTurn,
   calculateFinalScores,
+  sortMeldTiles,
 } from '@rummikub/shared';
 import { Server as SocketIOServer } from 'socket.io';
 
@@ -408,8 +409,10 @@ export class RoomManager {
   }
 
   private advanceTurn(room: Room, actionMessage: string): void {
-    // Clean up empty melds on board
-    room.state.board = room.state.board.filter(m => m.tiles.length > 0);
+    // Clean up empty melds on board and sort valid melds into sequential order
+    room.state.board = room.state.board
+      .filter(m => m.tiles.length > 0)
+      .map(m => ({ id: m.id, tiles: sortMeldTiles(m.tiles) }));
 
     // Next player
     room.state.activePlayerIndex = (room.state.activePlayerIndex + 1) % room.state.players.length;
